@@ -11,11 +11,16 @@ import { ThemeColors } from "@/constants/theme";
 import { createId } from "@/lib/id";
 
 const MINUTES_OPTIONS = [1, 2, 3, 5, 10, 15, 20, 30];
+const ROUTINE_ICONS = ["🌅", "☀️", "🌙", "💼", "🏠", "🚶", "🧘", "🍽️", "📚", "🎧"];
+const STEP_ICONS = ["✅", "💧", "🧹", "📋", "🎧", "🔕", "🚶", "🛏️"];
+const PERIOD_PRESETS = ["Manhã", "Tarde", "Noite"] as const;
 
 /**
- * NovaRotinaScreen — Criação e edição de rotina personalizada
+ * NovaRotinaScreen — Criação e edição de rotina
  *
  * Com `?id=<routineId>` a mesma tela edita uma rotina existente.
+ * Permite definir nome, ícone, horário/período, descrição e uma lista
+ * dinâmica de passos com ícone, tempo estimado, remoção e reordenação.
  */
 export default function NovaRotinaScreen() {
   const { t } = useTranslation();
@@ -24,7 +29,7 @@ export default function NovaRotinaScreen() {
   const { fontSize } = useFontScale();
   const { colors } = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const addRoutine = useRoutineStore((state) => state.addRoutine);
+  const adicionarRotina = useRoutineStore((state) => state.adicionarRotina);
   const updateRoutine = useRoutineStore((state) => state.updateRoutine);
   const existingRoutine = useRoutineStore((state) =>
     id ? state.getRoutineById(id) : undefined
@@ -34,6 +39,8 @@ export default function NovaRotinaScreen() {
 
   const [name, setName] = useState(existingRoutine?.name ?? "");
   const [description, setDescription] = useState(existingRoutine?.description ?? "");
+  const [icon, setIcon] = useState(existingRoutine?.icon ?? "");
+  const [schedule, setSchedule] = useState(existingRoutine?.schedule ?? "");
   const [steps, setSteps] = useState<RoutineStep[]>(
     existingRoutine?.steps ?? [
       { id: createId("step"), title: "", description: "", estimatedMinutes: 5 },
@@ -48,6 +55,8 @@ export default function NovaRotinaScreen() {
     if (!existingRoutine) return;
     setName(existingRoutine.name);
     setDescription(existingRoutine.description ?? "");
+    setIcon(existingRoutine.icon ?? "");
+    setSchedule(existingRoutine.schedule ?? "");
     setSteps(existingRoutine.steps);
     setFormError(null);
     // Ressincroniza apenas quando o id editado muda (ou a store hidrata)
@@ -65,6 +74,17 @@ export default function NovaRotinaScreen() {
     setSteps((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
   };
 
+  const handleMoveStep = (index: number, direction: -1 | 1) => {
+    setSteps((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(index, 1);
+      next.splice(target, 0, moved);
+      return next;
+    });
+  };
+
   const handleUpdateStep = (index: number, updates: Partial<RoutineStep>) => {
     setSteps((prev) => {
       const next = [...prev];
@@ -76,7 +96,12 @@ export default function NovaRotinaScreen() {
   const handleSave = () => {
     const validSteps = steps
       .filter((s) => s.title.trim() !== "")
-      .map((s) => ({ ...s, title: s.title.trim() }));
+      .map((s) => ({
+        ...s,
+        title: s.title.trim(),
+        ...(s.description?.trim() ? { description: s.description.trim() } : { description: undefined }),
+        ...(s.icon?.trim() ? { icon: s.icon.trim() } : { icon: undefined }),
+      }));
     if (!name.trim() || validSteps.length === 0) {
       setFormError(t("Preencha o nome e pelo menos um passo com título para salvar."));
       return;
@@ -86,15 +111,18 @@ export default function NovaRotinaScreen() {
     if (isEditing && existingRoutine) {
       updateRoutine(existingRoutine.id, {
         name: name.trim(),
-        description: description.trim(),
+        description: description.trim() || undefined,
+        icon: icon.trim() || undefined,
+        schedule: schedule.trim() || undefined,
         steps: validSteps,
       });
     } else {
-      addRoutine({
-        name: name.trim(),
-        description: description.trim(),
-        steps: validSteps,
-        isDefault: false,
+      adicionarRotina({
+        titulo: name.trim(),
+        descricao: description.trim() || undefined,
+        icone: icon.trim() || undefined,
+        horarioOuPeriodo: schedule.trim() || undefined,
+        passos: validSteps,
       });
     }
 
@@ -119,7 +147,7 @@ export default function NovaRotinaScreen() {
           <Text style={[styles.fieldLabel, { fontSize: fontSize(20) }]}>{t("Nome da rotina")}</Text>
           <TextInput
             style={[styles.input, { fontSize: fontSize(16) }]}
-            placeholder={t("Ex: Preparação matinal")}
+            placeholder={t("Ex: Hora de Dormir")}
             placeholderTextColor={colors.placeholder}
             value={name}
             onChangeText={(text) => {
@@ -130,9 +158,76 @@ export default function NovaRotinaScreen() {
           />
         </View>
 
+        {/* Ícone da rotina */}
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { fontSize: fontSize(16) }]}>
+            {t("Ícone (opcional)")}
+          </Text>
+          <View style={styles.chipsWrap}>
+            {ROUTINE_ICONS.map((emoji) => {
+              const selected = icon === emoji;
+              return (
+                <Pressable
+                  key={emoji}
+                  style={[styles.iconChip, selected && styles.iconChipActive]}
+                  onPress={() => setIcon(selected ? "" : emoji)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={t("Ícone {0}", emoji)}
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={{ fontSize: fontSize(20) }}>{emoji}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Horário ou período */}
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { fontSize: fontSize(16) }]}>
+            {t("Horário ou período (opcional)")}
+          </Text>
+          <View style={styles.chipsWrap}>
+            {PERIOD_PRESETS.map((period) => {
+              const localizedPeriod = t(period);
+              const selected = schedule === localizedPeriod;
+              return (
+                <Pressable
+                  key={period}
+                  style={[styles.periodChip, selected && styles.periodChipActive]}
+                  onPress={() => setSchedule(selected ? "" : localizedPeriod)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={localizedPeriod}
+                  accessibilityState={{ selected }}
+                >
+                  <Text
+                    style={[
+                      styles.periodChipText,
+                      selected && styles.periodChipTextActive,
+                      { fontSize: fontSize(14) },
+                    ]}
+                  >
+                    {localizedPeriod}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <TextInput
+            style={[styles.input, { fontSize: fontSize(16) }]}
+            placeholder={t("Ex: 21:00 ou Noite")}
+            placeholderTextColor={colors.placeholder}
+            value={schedule}
+            onChangeText={setSchedule}
+            accessibilityLabel={t("Horário ou período (opcional)")}
+          />
+        </View>
+
         {/* Descrição */}
         <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { fontSize: fontSize(16) }]}>{t("Descrição (opcional)")}</Text>
+          <Text style={[styles.fieldLabel, { fontSize: fontSize(16) }]}>
+            {t("Descrição (opcional)")}
+          </Text>
           <TextInput
             style={[styles.input, styles.textArea, { fontSize: fontSize(16) }]}
             placeholder={t("Por que esta rotina é importante?")}
@@ -151,17 +246,46 @@ export default function NovaRotinaScreen() {
           {steps.map((step, index) => (
             <View key={step.id} style={styles.stepCard}>
               <View style={styles.stepHeader}>
-                <Text style={[styles.stepNumber, { fontSize: fontSize(14) }]}>{t("Passo {0}", index + 1)}</Text>
-                {steps.length > 1 && (
-                  <Pressable
-                    style={styles.removeStepButton}
-                    onPress={() => handleRemoveStep(index)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("Remover passo {0}", index + 1)}
-                  >
-                    <Text style={[styles.removeStepText, { fontSize: fontSize(18) }]}>×</Text>
-                  </Pressable>
-                )}
+                <Text style={[styles.stepNumber, { fontSize: fontSize(14) }]}>
+                  {t("Passo {0}", index + 1)}
+                </Text>
+                <View style={styles.stepControls}>
+                  {steps.length > 1 && (
+                    <>
+                      <Pressable
+                        style={[styles.orderButton, index === 0 && styles.orderButtonDisabled]}
+                        onPress={() => handleMoveStep(index, -1)}
+                        disabled={index === 0}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("Mover passo {0} para cima", index + 1)}
+                        accessibilityState={{ disabled: index === 0 }}
+                      >
+                        <Text style={[styles.orderButtonText, { fontSize: fontSize(16) }]}>↑</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[
+                          styles.orderButton,
+                          index === steps.length - 1 && styles.orderButtonDisabled,
+                        ]}
+                        onPress={() => handleMoveStep(index, 1)}
+                        disabled={index === steps.length - 1}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("Mover passo {0} para baixo", index + 1)}
+                        accessibilityState={{ disabled: index === steps.length - 1 }}
+                      >
+                        <Text style={[styles.orderButtonText, { fontSize: fontSize(16) }]}>↓</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.removeStepButton}
+                        onPress={() => handleRemoveStep(index)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("Remover passo {0}", index + 1)}
+                      >
+                        <Text style={[styles.removeStepText, { fontSize: fontSize(18) }]}>×</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
               </View>
 
               <TextInput
@@ -186,8 +310,36 @@ export default function NovaRotinaScreen() {
                 accessibilityLabel={t("Descrição do passo {0} (opcional)", index + 1)}
               />
 
+              {/* Ícone opcional do passo */}
               <View style={styles.minutesRow}>
-                <Text style={[styles.minutesLabel, { fontSize: fontSize(14) }]}>{t("Minutos estimados:")}</Text>
+                <Text style={[styles.minutesLabel, { fontSize: fontSize(14) }]}>
+                  {t("Ícone do passo (opcional):")}
+                </Text>
+                <View style={styles.chipsWrap}>
+                  {STEP_ICONS.map((emoji) => {
+                    const selected = step.icon === emoji;
+                    return (
+                      <Pressable
+                        key={emoji}
+                        style={[styles.stepIconChip, selected && styles.iconChipActive]}
+                        onPress={() =>
+                          handleUpdateStep(index, { icon: selected ? undefined : emoji })
+                        }
+                        accessibilityRole="radio"
+                        accessibilityLabel={t("Ícone {0} para o passo {1}", emoji, index + 1)}
+                        accessibilityState={{ selected }}
+                      >
+                        <Text style={{ fontSize: fontSize(16) }}>{emoji}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.minutesRow}>
+                <Text style={[styles.minutesLabel, { fontSize: fontSize(14) }]}>
+                  {t("Minutos estimados:")}
+                </Text>
                 <View style={styles.minutesButtons}>
                   {MINUTES_OPTIONS.map((m) => (
                     <Pressable
@@ -222,7 +374,9 @@ export default function NovaRotinaScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("Adicionar passo à rotina")}
           >
-            <Text style={[styles.addStepText, { fontSize: fontSize(16) }]}>{t("Adicionar passo")}</Text>
+            <Text style={[styles.addStepText, { fontSize: fontSize(16) }]}>
+              {t("Adicionar passo")}
+            </Text>
           </Pressable>
         </View>
 
@@ -287,6 +441,57 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: 60,
       textAlignVertical: "top",
     },
+    chipsWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    iconChip: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      minWidth: 44,
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 8,
+    },
+    stepIconChip: {
+      backgroundColor: colors.input,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      minWidth: 38,
+      minHeight: 38,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 6,
+    },
+    iconChipActive: {
+      backgroundColor: colors.accentSoft,
+      borderColor: colors.accent,
+      borderWidth: 2,
+    },
+    periodChip: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 16,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+    },
+    periodChipActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    periodChipText: {
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
+    periodChipTextActive: {
+      color: colors.accentText,
+    },
     stepCard: {
       backgroundColor: colors.surface,
       borderRadius: 12,
@@ -304,8 +509,29 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
       fontWeight: "600",
     },
+    stepControls: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    orderButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      backgroundColor: colors.surfaceAlt,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    orderButtonDisabled: {
+      opacity: 0.35,
+    },
+    orderButtonText: {
+      color: colors.textSecondary,
+      fontWeight: "600",
+    },
     removeStepButton: {
-      padding: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
     },
     removeStepText: {
       color: colors.warm,

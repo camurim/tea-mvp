@@ -31,7 +31,8 @@ export function localizeCopingCard(card: CopingCard, t: Translate): CopingCard {
 }
 
 export function localizeRoutine(routine: Routine, t: Translate): Routine {
-  const original = routine.isDefault && DEFAULT_ROUTINES.find(({ id }) => id === routine.id);
+  if (routine.isDefault === false) return routine;
+  const original = DEFAULT_ROUTINES.find(({ id }) => id === routine.id);
   if (!original) return routine;
   return {
     ...routine,

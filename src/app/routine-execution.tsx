@@ -138,11 +138,19 @@ export default function RoutineExecutionScreen() {
         </View>
 
         {/* Título da rotina */}
-        <Text style={styles.routineTitle}>{routine.name}</Text>
+        <Text style={styles.routineTitle}>
+          {routine.icon ? `${routine.icon} ` : ""}
+          {routine.name}
+        </Text>
 
         {/* Passo atual em destaque */}
         <View style={styles.stepCard}>
           {showNextStep && <Text style={styles.progressText}>{t("Agora")}</Text>}
+          {currentStep.icon ? (
+            <Text style={styles.stepIcon} accessibilityElementsHidden>
+              {currentStep.icon}
+            </Text>
+          ) : null}
           <Text style={styles.stepTitle}>{currentStep.title}</Text>
           {currentStep.description && (
             <Text style={styles.stepDescription}>{currentStep.description}</Text>
@@ -318,6 +326,10 @@ const createStyles = (colors: ThemeColors, fontSize: (size: number) => number) =
       gap: 12,
     },
     nextStepCard: { padding: 16, borderRadius: 12, backgroundColor: colors.surface, gap: 8 },
+    stepIcon: {
+      fontSize: fontSize(36),
+      textAlign: "center",
+    },
     stepTitle: {
       color: colors.text,
       fontSize: fontSize(28),

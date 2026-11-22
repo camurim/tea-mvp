@@ -8,6 +8,7 @@ export interface RoutineStep {
   id: string;
   title: string;
   description?: string;
+  icon?: string;
   estimatedMinutes: number; // Tempo estimado para o passo
 }
 
@@ -15,9 +16,31 @@ export interface Routine {
   id: string;
   name: string;
   description?: string;
+  icon?: string; // Ícone (emoji) ou URI/identificador de imagem
+  schedule?: string; // Horário ou período (ex: "08:00", "Manhã")
   steps: RoutineStep[];
-  isDefault: boolean; // Rotinas pré-configuradas não podem ser excluídas
   createdAt: number;
+  /**
+   * @deprecated Mantido opcional apenas para compatibilidade temporária com
+   * telas ainda não migradas. Todas as rotinas podem ser editadas e excluídas.
+   */
+  isDefault?: boolean;
+}
+
+export interface NovaRotinaPassoInput {
+  id?: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  estimatedMinutes?: number;
+}
+
+export interface NovaRotinaInput {
+  titulo: string;
+  descricao?: string;
+  icone?: string;
+  horarioOuPeriodo?: string;
+  passos: NovaRotinaPassoInput[];
 }
 
 export interface RoutineExecutionState {
@@ -35,13 +58,12 @@ export interface RoutineExecutionState {
   pausedAt: number | null;
 }
 
-// Rotinas pré-configuradas
+// Rotinas iniciais (seed para o primeiro uso; salvas como rotinas comuns do usuário)
 export const DEFAULT_ROUTINES: Routine[] = [
   {
     id: "default-work",
     name: "Início de Expediente",
     description: "Preparação para começar o dia de trabalho",
-    isDefault: true,
     createdAt: Date.now(),
     steps: [
       { id: "work-1", title: "Organizar mesa", description: "Limpar e organizar o espaço de trabalho", estimatedMinutes: 5 },
@@ -53,7 +75,6 @@ export const DEFAULT_ROUTINES: Routine[] = [
     id: "default-debrief",
     name: "Descompressão Pós-Reunião",
     description: "Pausa para se recuperar após interações intensas",
-    isDefault: true,
     createdAt: Date.now(),
     steps: [
       { id: "debrief-1", title: "Silenciar notificações", description: "Ativar modo não perturbe", estimatedMinutes: 1 },
@@ -65,7 +86,6 @@ export const DEFAULT_ROUTINES: Routine[] = [
     id: "default-leaving",
     name: "Preparação para Sair",
     description: "Verificação antes de sair de casa",
-    isDefault: true,
     createdAt: Date.now(),
     steps: [
       { id: "leaving-1", title: "Checar chaves e carteira", description: "Verificar itens essenciais", estimatedMinutes: 2 },

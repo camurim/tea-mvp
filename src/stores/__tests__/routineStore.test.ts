@@ -1,7 +1,9 @@
-import { useRoutineStore } from "@/stores/routineStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRoutineStore, ROUTINE_STORAGE_KEY } from "@/stores/routineStore";
 
 describe("routineStore", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
     useRoutineStore.getState().resetToDefaults();
   });
 
@@ -165,11 +167,137 @@ describe("routineStore", () => {
     expect(useRoutineStore.getState().execution).toBe(execution);
   });
 
-  it("rotinas padrão não podem ser excluídas", () => {
-    useRoutineStore.getState().deleteRoutine("default-work");
+  it("rotinas iniciais (seed) podem ser excluídas como qualquer rotina comum", () => {
+    const initial = useRoutineStore.getState().routines.find((r) => r.id === "default-work");
+    expect(initial).toBeDefined();
+    expect(initial?.isDefault).toBeUndefined();
+
+    useRoutineStore.getState().excluirRotina("default-work");
     expect(
       useRoutineStore.getState().routines.find((r) => r.id === "default-work")
-    ).toBeDefined();
+    ).toBeUndefined();
+  });
+
+  it("adicionarRotina cria rotina com título, ícone, horário/período e passos", () => {
+    const created = useRoutineStore.getState().adicionarRotina({
+      titulo: "Rotina Matinal",
+      descricao: "Começar o dia com calma",
+      icone: "☀️",
+      horarioOuPeriodo: "07:30",
+      passos: [
+        { title: "Beber água", estimatedMinutes: 2 },
+        { title: "Tomar café da manhã", description: "Sem pressa" },
+      ],
+    });
+
+    expect(created.id).toMatch(/^routine-/);
+    expect(created.name).toBe("Rotina Matinal");
+    expect(created.description).toBe("Começar o dia com calma");
+    expect(created.icon).toBe("☀️");
+    expect(created.schedule).toBe("07:30");
+    expect(created.isDefault).toBeUndefined();
+    expect(created.steps).toHaveLength(2);
+    expect(created.steps[0].estimatedMinutes).toBe(2);
+    expect(created.steps[1].estimatedMinutes).toBe(5);
+    expect(created.steps[1].id).toMatch(/^step-/);
+
+    const saved = useRoutineStore.getState().getRoutineById(created.id);
+    expect(saved).toEqual(created);
+  });
+
+  it("permite excluir todas as rotinas (estado vazio []) sem quebrar e mantém vazio após reidratação", async () => {
+    const ids = useRoutineStore.getState().routines.map((r) => r.id);
+    useRoutineStore.getState().startExecution(ids[0]);
+
+    for (const id of ids) {
+      useRoutineStore.getState().excluirRotina(id);
+    }
+
+    expect(useRoutineStore.getState().routines).toEqual([]);
+    expect(useRoutineStore.getState().execution).toBeNull();
+    expect(useRoutineStore.getState().getRoutineById(ids[0])).toBeUndefined();
+    expect(useRoutineStore.getState().startExecution(ids[0])).toBe(false);
+
+    // Simula reabertura do app: não deve restaurar rotinas built-in
+    await useRoutineStore.persist.rehydrate();
+    expect(useRoutineStore.getState().routines).toEqual([]);
+    expect(useRoutineStore.getState().execution).toBeNull();
+
+    // Adicionar rotina a partir do estado vazio funciona normalmente
+    const nova = useRoutineStore.getState().adicionarRotina({
+      titulo: "Primeira rotina nova",
+      icone: "🧘",
+      horarioOuPeriodo: "Noite",
+      passos: [{ title: "Respirar fundo", estimatedMinutes: 3 }],
+    });
+    expect(useRoutineStore.getState().routines).toHaveLength(1);
+    expect(useRoutineStore.getState().startExecution(nova.id)).toBe(true);
+  });
+
+  it("na primeira abertura sem dados salvos, persiste o seed como rotinas comuns do usuário", async () => {
+    await AsyncStorage.clear();
+    expect(await AsyncStorage.getItem(ROUTINE_STORAGE_KEY)).toBeNull();
+
+    await useRoutineStore.persist.rehydrate();
+    // Aguarda o callback assíncrono de onRehydrateStorage
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const raw = await AsyncStorage.getItem(ROUTINE_STORAGE_KEY);
+    expect(raw).not.toBeNull();
+    const persisted = JSON.parse(raw!);
+    expect(persisted.state.routines).toHaveLength(3);
+    expect(persisted.state.routines.every((r: { isDefault?: boolean }) => r.isDefault === undefined)).toBe(true);
+  });
+
+  it("migra dados v2 removendo isDefault das rotinas salvas", async () => {
+    await AsyncStorage.setItem(
+      ROUTINE_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        state: {
+          routines: [
+            {
+              id: "default-work",
+              name: "Início de Expediente",
+              isDefault: true,
+              createdAt: 1000,
+              steps: [{ id: "work-1", title: "Organizar mesa", estimatedMinutes: 5 }],
+            },
+          ],
+          execution: null,
+        },
+      })
+    );
+
+    await useRoutineStore.persist.rehydrate();
+    const routines = useRoutineStore.getState().routines;
+    expect(routines).toHaveLength(1);
+    expect(routines[0].isDefault).toBeUndefined();
+
+    useRoutineStore.getState().excluirRotina("default-work");
+    expect(useRoutineStore.getState().routines).toEqual([]);
+  });
+
+  it("restaurarRotinasPadrao readiciona apenas as rotinas padrão ausentes sem duplicar nem apagar as personalizadas", () => {
+    const custom = useRoutineStore.getState().adicionarRotina({
+      titulo: "Minha Rotina",
+      passos: [{ title: "Ler", estimatedMinutes: 10 }],
+    });
+    useRoutineStore.getState().excluirRotina("default-work");
+    expect(useRoutineStore.getState().routines.map((r) => r.id)).not.toContain("default-work");
+
+    // Restaura apenas a que faltava, mantendo a personalizada e sem duplicar as outras
+    useRoutineStore.getState().restaurarRotinasPadrao();
+    const ids = useRoutineStore.getState().routines.map((r) => r.id);
+    expect(ids).toContain("default-work");
+    expect(ids).toContain("default-debrief");
+    expect(ids).toContain("default-leaving");
+    expect(ids).toContain(custom.id);
+    expect(ids).toHaveLength(4);
+
+    // Chamar novamente não cria duplicatas
+    useRoutineStore.getState().restaurarRotinasPadrao();
+    expect(useRoutineStore.getState().routines).toHaveLength(4);
   });
   describe("edição da rotina em execução", () => {
     function startCustom() {
