@@ -1,4 +1,6 @@
 import React from "react";
+import fs from "fs";
+import path from "path";
 import renderer, { act } from "react-test-renderer";
 import { Modal, Pressable, TextInput } from "react-native";
 import RoutinesListScreen from "@/app/routines";
@@ -191,5 +193,27 @@ describe("NovaRotinaScreen", () => {
     expect(created?.steps[0].icon).toBe("💧");
 
     act(() => tree.unmount());
+  });
+});
+
+describe("Expo Router — rotas de rotinas", () => {
+  it("registra routines/index e routines/new sem conflito de rota-layout", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getRoutes } = require("expo-router/build/getRoutes");
+    const appDir = path.resolve(__dirname, "../app");
+    const walk = (dir: string, base = "."): string[] =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const rel = `${base}/${entry.name}`;
+        if (entry.isDirectory()) return walk(path.join(dir, entry.name), rel);
+        return entry.name.endsWith(".tsx") || entry.name.endsWith(".ts") ? [rel] : [];
+      });
+
+    const files = walk(appDir);
+    const ctx = Object.assign(() => ({}), { keys: () => files });
+    const tree = getRoutes(ctx);
+    const routes = tree.children.map((child: { route: string }) => child.route);
+
+    expect(routes).toContain("routines/index");
+    expect(routes).toContain("routines/new");
   });
 });
