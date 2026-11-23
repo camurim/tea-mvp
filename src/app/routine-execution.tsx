@@ -1,12 +1,13 @@
 import { localizeRoutine } from "@/lib/localizedContent";
 import { useTranslation } from "@/hooks/useTranslation";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   Pressable,
   StyleSheet,
   ScrollView,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
@@ -41,12 +42,52 @@ export default function RoutineExecutionScreen() {
   const extendTime = useRoutineStore((state) => state.extendTime);
   const stopExecution = useRoutineStore((state) => state.stopExecution);
 
+  const [appActiveTick, setAppActiveTick] = useState(0);
+
   const returnToRoutines = useCallback(() => {
     // Reuse the list that opened this execution rather than stacking a copy.
     // A directly restored execution may have no previous route.
     if (router.canGoBack()) router.back();
     else router.replace("/routines");
   }, [router]);
+
+  // Ressincroniza a contagem ao retornar do segundo plano, pois o SO pode suspender timers JS.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        setAppActiveTick((tick) => tick + 1);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // Avança automaticamente para o próximo passo quando o tempo da tarefa se esgota.
+  useEffect(() => {
+    if (
+      !execution ||
+      execution.completedAt !== null ||
+      execution.isPaused ||
+      execution.stepEndsAt === null
+    ) {
+      return;
+    }
+
+    const remaining = execution.stepEndsAt - Date.now();
+    if (remaining <= 0) {
+      completeStep();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      completeStep();
+    }, remaining);
+
+    return () => clearTimeout(timer);
+  }, [
+    execution,
+    completeStep,
+    appActiveTick,
+  ]);
 
   // Trata também uma conclusão restaurada do armazenamento após reabrir o app.
   useEffect(() => {

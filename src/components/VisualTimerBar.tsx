@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Animated, Easing } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View, StyleSheet, Animated, Easing, AppState } from "react-native";
 
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
@@ -39,6 +39,17 @@ export function VisualTimerBar({
   const progress = useRef(new Animated.Value(1)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const [trackWidth, setTrackWidth] = useState(0);
+  const [appActiveTick, setAppActiveTick] = useState(0);
+
+  // Ressincroniza a barra ao retornar do segundo plano para refletir o tempo real.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        setAppActiveTick((tick) => tick + 1);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     const totalDuration = endTime - startTime;
@@ -58,37 +69,64 @@ export function VisualTimerBar({
 
     if (reduceMotion) {
       const timer = setInterval(() => {
-        progress.setValue(Math.min(1, Math.max(0, (endTime - Date.now()) / totalDuration)));
+        const nextRemaining = Math.max(0, endTime - Date.now());
+        progress.setValue(Math.min(1, nextRemaining / totalDuration));
+        if (nextRemaining === 0) {
+          clearInterval(timer);
+        }
       }, 1000);
       return () => clearInterval(timer);
     }
 
-    animationRef.current = Animated.timing(progress, {
+    // Aguarda a medição da largura da barra antes de iniciar a animação nativa
+    // para que `translateX` já esteja conectado com o deslocamento real.
+    if (trackWidth <= 0) return;
+
+    const animation = Animated.timing(progress, {
       toValue: 0,
       duration: remaining,
       easing: Easing.linear,
       useNativeDriver: true,
     });
-
-    animationRef.current.start();
+    animationRef.current = animation;
+    animation.start();
 
     return () => {
-      animationRef.current?.stop();
+      animation.stop();
+      if (animationRef.current === animation) {
+        animationRef.current = null;
+      }
     };
-  }, [startTime, endTime, isPaused, pausedAt, progress, reduceMotion]);
+  }, [
+    startTime,
+    endTime,
+    isPaused,
+    pausedAt,
+    progress,
+    reduceMotion,
+    trackWidth,
+    appActiveTick,
+  ]);
 
   // progress=1 → scaleX 1, translateX 0 (barra cheia, esquerda em 0);
   // progress=0 → scaleX 0, translateX -W/2 (zero largura, esquerda em 0).
-  const translateX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-trackWidth / 2, 0],
-  });
+  const translateX = useMemo(
+    () =>
+      progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [-trackWidth / 2, 0],
+      }),
+    [progress, trackWidth]
+  );
 
   return (
     <View style={styles.container}>
       <View
         style={[styles.track, { backgroundColor: trackColor }]}
-        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        onLayout={(event) => {
+          const width = event.nativeEvent.layout.width;
+          setTrackWidth((prev) => (prev === width ? prev : width));
+        }}
       >
         <Animated.View
           style={[

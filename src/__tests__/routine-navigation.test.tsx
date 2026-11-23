@@ -1,6 +1,6 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
-import { Pressable } from "react-native";
+import { AppState, Pressable } from "react-native";
 import RoutineExecutionScreen from "../app/routine-execution";
 import { useRoutineStore } from "../stores/routineStore";
 
@@ -129,4 +129,118 @@ test("an empty restored execution has a safe route back without history", () => 
   expect(useRoutineStore.getState().execution?.isPaused).toBe(paused);
   expect(JSON.stringify(tree.toJSON())).toContain(routine.steps[1].title);
   act(() => tree.unmount());
+});
+
+test("avança automaticamente para a próxima tarefa e conclui a rotina quando os timers se esgotam", () => {
+  jest.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
+  const routine = useRoutineStore.getState().routines[0]; // passos: 5min, 3min, 15min
+  useRoutineStore.getState().startExecution(routine.id);
+  mockHistory.push("/routine-execution");
+  const tree = renderExecution();
+
+  // Ainda no passo 1 faltando 1ms
+  act(() => jest.advanceTimersByTime(5 * 60_000 - 1));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(0);
+
+  // Esgota passo 1 -> avança automaticamente para o passo 2
+  act(() => jest.advanceTimersByTime(1));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(1);
+  expect(JSON.stringify(tree.toJSON())).toContain(routine.steps[1].title);
+
+  // Esgota passo 2 (3 min) -> avança automaticamente para o passo 3
+  act(() => jest.advanceTimersByTime(3 * 60_000));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(2);
+  expect(JSON.stringify(tree.toJSON())).toContain(routine.steps[2].title);
+
+  // Esgota passo 3 (15 min) -> conclui a rotina automaticamente
+  act(() => jest.advanceTimersByTime(15 * 60_000));
+  expect(useRoutineStore.getState().execution?.completedAt).not.toBeNull();
+  expect(JSON.stringify(tree.toJSON())).toContain("Rotina concluída. Bom trabalho.");
+
+  // Após 1500ms retorna para a lista de rotinas
+  act(() => jest.advanceTimersByTime(1500));
+  expect(useRoutineStore.getState().execution).toBeNull();
+  expect(mockBack).toHaveBeenCalledTimes(1);
+
+  act(() => tree.unmount());
+});
+
+test("não avança automaticamente enquanto pausado e retoma com o tempo restante", () => {
+  jest.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
+  const routine = useRoutineStore.getState().routines[0]; // passo 1: 5 min
+  useRoutineStore.getState().startExecution(routine.id);
+  const tree = renderExecution();
+
+  // Passam 2 minutos, depois pausa
+  act(() => jest.advanceTimersByTime(2 * 60_000));
+  const pauseBtn = tree.root
+    .findAllByType(Pressable)
+    .find((p) => p.props.accessibilityLabel === "Pausar rotina")!;
+  act(() => pauseBtn.props.onPress());
+
+  // Passam 10 minutos pausado: não deve avançar
+  act(() => jest.advanceTimersByTime(10 * 60_000));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(0);
+
+  // Retoma: devem restar 3 minutos
+  const resumeBtn = tree.root
+    .findAllByType(Pressable)
+    .find((p) => p.props.accessibilityLabel === "Continuar rotina")!;
+  act(() => resumeBtn.props.onPress());
+
+  act(() => jest.advanceTimersByTime(3 * 60_000 - 1));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(0);
+
+  act(() => jest.advanceTimersByTime(1));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(1);
+
+  act(() => tree.unmount());
+});
+
+test("adicionar +5 min adia o avanço automático do passo", () => {
+  jest.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
+  const routine = useRoutineStore.getState().routines[0]; // passo 1: 5 min
+  useRoutineStore.getState().startExecution(routine.id);
+  const tree = renderExecution();
+
+  const extendBtn = tree.root
+    .findAllByType(Pressable)
+    .find((p) => p.props.accessibilityLabel === "Adicionar 5 minutos")!;
+  act(() => extendBtn.props.onPress());
+
+  // Passam os 5 minutos originais: ainda deve estar no passo 1
+  act(() => jest.advanceTimersByTime(5 * 60_000));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(0);
+
+  // Passam os 5 minutos extras: agora avança para o passo 2
+  act(() => jest.advanceTimersByTime(5 * 60_000));
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(1);
+
+  act(() => tree.unmount());
+});
+
+test("avança automaticamente ao retornar do segundo plano se o prazo já venceu", () => {
+  jest.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
+  let appStateHandler: ((state: string) => void) | undefined;
+  const appStateSpy = jest
+    .spyOn(AppState, "addEventListener")
+    .mockImplementation((_type, handler) => {
+      appStateHandler = handler as (state: string) => void;
+      return { remove: jest.fn() };
+    });
+
+  const routine = useRoutineStore.getState().routines[0]; // passo 1: 5 min
+  useRoutineStore.getState().startExecution(routine.id);
+  const tree = renderExecution();
+
+  // Simula o relógio avançando 6 min sem disparar o setTimeout (app suspenso em background)
+  jest.setSystemTime(new Date("2026-01-01T10:06:00.000Z"));
+  act(() => {
+    appStateHandler?.("active");
+  });
+
+  expect(useRoutineStore.getState().execution?.currentStepIndex).toBe(1);
+
+  act(() => tree.unmount());
+  appStateSpy.mockRestore();
 });
