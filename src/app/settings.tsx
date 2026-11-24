@@ -1,6 +1,6 @@
-import { LANGUAGES } from "@/lib/i18n";
+import { LANGUAGES, type Language } from "@/lib/i18n";
 import { useTranslation } from "@/hooks/useTranslation";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Linking,
   Switch,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, Link } from "expo-router";
@@ -17,10 +18,28 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { useFontScale } from "@/hooks/useFontScale";
 import { ThemeColors } from "@/constants/theme";
+import {
+  BackupError,
+  exportBackup,
+  importBackup,
+  pickAndValidateBackup,
+} from "@/lib/backupService";
 
 import { usePreferencesStore } from "@/stores/preferencesStore";
 
 const DEVELOPER_EMAIL = "valdenorsa@proton.me";
+
+function formatBackupDateTime(timestamp: number, language: Language): string {
+  const date = new Date(timestamp);
+  try {
+    return date.toLocaleString(language, {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  } catch {
+    return date.toLocaleString();
+  }
+}
 
 /**
  * SettingsScreen — Configurações do App
@@ -53,6 +72,85 @@ export default function SettingsScreen() {
     { key: "light", label: t("Claro"), description: t("Para ambientes bem iluminados") },
     { key: "auto", label: t("Automático"), description: t("Segue o tema do sistema") },
   ];
+
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<{
+    rawJson: string;
+    fileName?: string;
+  } | null>(null);
+
+  const handleExportBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    setBackupFeedback(null);
+    try {
+      const result = await exportBackup();
+      trigger("success");
+      setBackupFeedback({
+        type: "success",
+        message: t("Backup concluído com sucesso ({0}).", result.fileName),
+      });
+    } catch (error) {
+      const message =
+        error instanceof BackupError
+          ? error.message
+          : t("Ocorreu um problema inesperado. Tente novamente ou volte ao início.");
+      setBackupFeedback({ type: "error", message });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleStartRestore = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    setBackupFeedback(null);
+    try {
+      const picked = await pickAndValidateBackup();
+      if (picked.status === "selected") {
+        setPendingRestore({
+          rawJson: picked.rawJson,
+          fileName: picked.fileName,
+        });
+      }
+    } catch (error) {
+      const message =
+        error instanceof BackupError
+          ? error.message
+          : t("Ocorreu um problema inesperado. Tente novamente ou volte ao início.");
+      setBackupFeedback({ type: "error", message });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestore || backupBusy) return;
+    const { rawJson } = pendingRestore;
+    setPendingRestore(null);
+    setBackupBusy(true);
+    setBackupFeedback(null);
+    try {
+      await importBackup(rawJson);
+      trigger("success");
+      setBackupFeedback({
+        type: "success",
+        message: t("Backup restaurado com sucesso."),
+      });
+    } catch (error) {
+      const message =
+        error instanceof BackupError
+          ? error.message
+          : t("Ocorreu um problema inesperado. Tente novamente ou volte ao início.");
+      setBackupFeedback({ type: "error", message });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
 
   const handleContactDeveloper = () => {
     Linking.openURL(
@@ -162,6 +260,74 @@ export default function SettingsScreen() {
           </Pressable>
         </Link>
 
+        {/* Backup e Restauração */}
+        <View style={styles.section}>
+          <Text accessibilityRole="header" style={[styles.sectionTitle, { fontSize: fontSize(20) }]}>
+            {t("Backup e Restauração")}
+          </Text>
+          <Text style={[styles.sectionDescription, { fontSize: fontSize(14) }]}>
+            {t("Salve uma cópia local ou na nuvem das suas rotinas, preferências, cartões e histórico, ou restaure um arquivo .json.")}
+          </Text>
+          <Text style={[styles.backupMetaText, { fontSize: fontSize(13) }]}>
+            {preferences.lastBackupAt !== null
+              ? t("Último backup: {0}", formatBackupDateTime(preferences.lastBackupAt, preferences.language))
+              : t("Nenhum backup realizado ainda.")}
+          </Text>
+
+          {backupFeedback && (
+            <View
+              style={[
+                styles.feedbackBanner,
+                backupFeedback.type === "error"
+                  ? styles.feedbackBannerError
+                  : styles.feedbackBannerSuccess,
+              ]}
+              accessibilityRole={backupFeedback.type === "error" ? "alert" : "text"}
+              accessibilityLiveRegion="polite"
+            >
+              <Text
+                style={[
+                  styles.feedbackText,
+                  backupFeedback.type === "error"
+                    ? styles.feedbackTextError
+                    : styles.feedbackTextSuccess,
+                  { fontSize: fontSize(14) },
+                ]}
+              >
+                {backupFeedback.message}
+              </Text>
+            </View>
+          )}
+
+          <Pressable
+            style={[styles.backupPrimaryButton, backupBusy && styles.buttonDisabled]}
+            onPress={handleExportBackup}
+            disabled={backupBusy}
+            accessibilityRole="button"
+            accessibilityLabel={t("Fazer Backup (Salvar na Nuvem / Arquivo)")}
+            accessibilityHint={t("Gera um arquivo .json com todos os dados do aplicativo para salvar no aparelho ou na nuvem")}
+            accessibilityState={{ disabled: backupBusy }}
+          >
+            <Text style={[styles.backupPrimaryButtonText, { fontSize: fontSize(15) }]}>
+              {t("Fazer Backup (Salvar na Nuvem / Arquivo)")}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.backupSecondaryButton, backupBusy && styles.buttonDisabled]}
+            onPress={handleStartRestore}
+            disabled={backupBusy}
+            accessibilityRole="button"
+            accessibilityLabel={t("Restaurar Backup")}
+            accessibilityHint={t("Abre o seletor de arquivos para importar um backup .json e substituir os dados atuais")}
+            accessibilityState={{ disabled: backupBusy }}
+          >
+            <Text style={[styles.backupSecondaryButtonText, { fontSize: fontSize(15) }]}>
+              {t("Restaurar Backup")}
+            </Text>
+          </Pressable>
+        </View>
+
         <View style={styles.section}>
           <Text accessibilityRole="header" style={[styles.sectionTitle, { fontSize: fontSize(20) }]}>
             {t("Privacidade")}
@@ -205,6 +371,52 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Modal de confirmação para restaurar backup */}
+      <Modal
+        visible={pendingRestore !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingRestore(null)}
+      >
+        <View style={styles.modalOverlay} accessibilityViewIsModal>
+          <View style={styles.modalCard}>
+            <Text style={[styles.modalTitle, { fontSize: fontSize(20) }]}>
+              {t("Confirmar restauração do backup")}
+            </Text>
+            <Text style={[styles.modalMessage, { fontSize: fontSize(15) }]}>
+              {t("Os dados atuais do aplicativo serão substituídos pelos dados do arquivo selecionado. Deseja continuar?")}
+            </Text>
+            {pendingRestore?.fileName ? (
+              <Text style={[styles.modalFileName, { fontSize: fontSize(13) }]}>
+                {t("Arquivo: {0}", pendingRestore.fileName)}
+              </Text>
+            ) : null}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={() => setPendingRestore(null)}
+                accessibilityRole="button"
+                accessibilityLabel={t("Cancelar")}
+              >
+                <Text style={[styles.modalCancelText, { fontSize: fontSize(15) }]}>
+                  {t("Cancelar")}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalConfirmButton}
+                onPress={handleConfirmRestore}
+                accessibilityRole="button"
+                accessibilityLabel={t("Confirmar substituição dos dados")}
+              >
+                <Text style={[styles.modalConfirmText, { fontSize: fontSize(15) }]}>
+                  {t("Substituir dados")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -284,6 +496,121 @@ const createStyles = (colors: ThemeColors) =>
     },
     contactButtonText: {
       color: colors.accentText,
+      fontWeight: "600",
+    },
+    backupMetaText: {
+      color: colors.textSecondary,
+    },
+    feedbackBanner: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    feedbackBannerSuccess: {
+      backgroundColor: colors.surfaceAlt,
+      borderColor: colors.success,
+    },
+    feedbackBannerError: {
+      backgroundColor: colors.warmSurface,
+      borderColor: colors.warm,
+    },
+    feedbackText: {
+      lineHeight: 20,
+    },
+    feedbackTextSuccess: {
+      color: colors.success,
+      fontWeight: "500",
+    },
+    feedbackTextError: {
+      color: colors.warm,
+      fontWeight: "500",
+    },
+    backupPrimaryButton: {
+      backgroundColor: colors.accent,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignItems: "center",
+    },
+    backupPrimaryButtonText: {
+      color: colors.accentText,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    backupSecondaryButton: {
+      backgroundColor: colors.surfaceAlt,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+    },
+    backupSecondaryButtonText: {
+      color: colors.text,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.shadow,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    modalCard: {
+      width: "100%",
+      maxWidth: 400,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 16,
+    },
+    modalTitle: {
+      color: colors.text,
+      fontWeight: "600",
+    },
+    modalMessage: {
+      color: colors.textSecondary,
+      lineHeight: 22,
+    },
+    modalFileName: {
+      color: colors.textMuted,
+    },
+    modalActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 12,
+      marginTop: 4,
+    },
+    modalCancelButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceAlt,
+    },
+    modalCancelText: {
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
+    modalConfirmButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.warm,
+      backgroundColor: colors.warmSurface,
+    },
+    modalConfirmText: {
+      color: colors.warm,
       fontWeight: "600",
     },
   });

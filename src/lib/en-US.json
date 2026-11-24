@@ -393,5 +393,20 @@
   "Som ao finalizar etapa": "Sound at step completion",
   "Emitir um som breve ao término de cada etapa da rotina.": "Play a brief sound when each routine step finishes.",
   "Manter tela ligada na rotina": "Keep screen awake during routines",
-  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Prevent the screen from turning off while a routine is running."
+  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Prevent the screen from turning off while a routine is running.",
+  "Backup e Restauração": "Backup & Restore",
+  "Salve uma cópia local ou na nuvem das suas rotinas, preferências, cartões e histórico, ou restaure um arquivo .json.": "Save a local or cloud copy of your routines, preferences, cards and history, or restore a .json file.",
+  "Último backup: {0}": "Last backup: {0}",
+  "Nenhum backup realizado ainda.": "No backup created yet.",
+  "Fazer Backup (Salvar na Nuvem / Arquivo)": "Create Backup (Save to Cloud / File)",
+  "Gera um arquivo .json com todos os dados do aplicativo para salvar no aparelho ou na nuvem": "Generates a .json file with all app data to save on your device or in the cloud",
+  "Restaurar Backup": "Restore Backup",
+  "Abre o seletor de arquivos para importar um backup .json e substituir os dados atuais": "Opens the file picker to import a .json backup and replace current data",
+  "Backup concluído com sucesso ({0}).": "Backup completed successfully ({0}).",
+  "Backup restaurado com sucesso.": "Backup restored successfully.",
+  "Confirmar restauração do backup": "Confirm backup restore",
+  "Os dados atuais do aplicativo serão substituídos pelos dados do arquivo selecionado. Deseja continuar?": "Current app data will be replaced with the data from the selected file. Do you want to continue?",
+  "Arquivo: {0}": "File: {0}",
+  "Substituir dados": "Replace data",
+  "Confirmar substituição dos dados": "Confirm data replacement"
 }

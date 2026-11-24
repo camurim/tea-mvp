@@ -393,5 +393,20 @@
   "Som ao finalizar etapa": "Son à la fin d’une étape",
   "Emitir um som breve ao término de cada etapa da rotina.": "Émettre un son bref à la fin de chaque étape de la routine.",
   "Manter tela ligada na rotina": "Garder l’écran allumé pendant les routines",
-  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Empêcher l’écran de s’éteindre pendant qu’une routine est en cours."
+  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Empêcher l’écran de s’éteindre pendant qu’une routine est en cours.",
+  "Backup e Restauração": "Sauvegarde et restauration",
+  "Salve uma cópia local ou na nuvem das suas rotinas, preferências, cartões e histórico, ou restaure um arquivo .json.": "Enregistrez une copie locale ou dans le cloud de vos routines, préférences, cartes et historique, ou restaurez un fichier .json.",
+  "Último backup: {0}": "Dernière sauvegarde : {0}",
+  "Nenhum backup realizado ainda.": "Aucune sauvegarde effectuée pour le moment.",
+  "Fazer Backup (Salvar na Nuvem / Arquivo)": "Faire une sauvegarde (Cloud / Fichier)",
+  "Gera um arquivo .json com todos os dados do aplicativo para salvar no aparelho ou na nuvem": "Génère un fichier .json avec toutes les données de l’application à enregistrer sur l’appareil ou dans le cloud",
+  "Restaurar Backup": "Restaurer une sauvegarde",
+  "Abre o seletor de arquivos para importar um backup .json e substituir os dados atuais": "Ouvre le sélecteur de fichiers pour importer une sauvegarde .json et remplacer les données actuelles",
+  "Backup concluído com sucesso ({0}).": "Sauvegarde terminée avec succès ({0}).",
+  "Backup restaurado com sucesso.": "Sauvegarde restaurée avec succès.",
+  "Confirmar restauração do backup": "Confirmer la restauration de la sauvegarde",
+  "Os dados atuais do aplicativo serão substituídos pelos dados do arquivo selecionado. Deseja continuar?": "Les données actuelles de l’application seront remplacées par celles du fichier sélectionné. Continuer ?",
+  "Arquivo: {0}": "Fichier : {0}",
+  "Substituir dados": "Remplacer les données",
+  "Confirmar substituição dos dados": "Confirmer le remplacement des données"
 }

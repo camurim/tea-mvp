@@ -393,5 +393,20 @@
   "Som ao finalizar etapa": "Sonido al finalizar paso",
   "Emitir um som breve ao término de cada etapa da rotina.": "Emitir un sonido breve al terminar cada paso de la rutina.",
   "Manter tela ligada na rotina": "Mantener la pantalla encendida en la rutina",
-  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Evitar que la pantalla se apague mientras una rutina esté en curso."
+  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Evitar que la pantalla se apague mientras una rutina esté en curso.",
+  "Backup e Restauração": "Copia de seguridad y restauración",
+  "Salve uma cópia local ou na nuvem das suas rotinas, preferências, cartões e histórico, ou restaure um arquivo .json.": "Guarda una copia local o en la nube de tus rutinas, preferencias, tarjetas e historial, o restaura un archivo .json.",
+  "Último backup: {0}": "Última copia de seguridad: {0}",
+  "Nenhum backup realizado ainda.": "Aún no se ha realizado ninguna copia de seguridad.",
+  "Fazer Backup (Salvar na Nuvem / Arquivo)": "Hacer copia de seguridad (Guardar en la nube / Archivo)",
+  "Gera um arquivo .json com todos os dados do aplicativo para salvar no aparelho ou na nuvem": "Genera un archivo .json con todos los datos de la aplicación para guardar en el dispositivo o en la nube",
+  "Restaurar Backup": "Restaurar copia de seguridad",
+  "Abre o seletor de arquivos para importar um backup .json e substituir os dados atuais": "Abre el selector de archivos para importar una copia .json y reemplazar los datos actuales",
+  "Backup concluído com sucesso ({0}).": "Copia de seguridad completada con éxito ({0}).",
+  "Backup restaurado com sucesso.": "Copia de seguridad restaurada con éxito.",
+  "Confirmar restauração do backup": "Confirmar restauración de la copia",
+  "Os dados atuais do aplicativo serão substituídos pelos dados do arquivo selecionado. Deseja continuar?": "Los datos actuales de la aplicación se reemplazarán por los del archivo seleccionado. ¿Deseas continuar?",
+  "Arquivo: {0}": "Archivo: {0}",
+  "Substituir dados": "Reemplazar datos",
+  "Confirmar substituição dos dados": "Confirmar reemplazo de datos"
 }
