@@ -10,9 +10,13 @@ interface PreferencesStore {
   hapticsEnabled: boolean;
   reduceMotion: boolean;
   showNextStep: boolean;
+  routineStepSoundEnabled: boolean;
+  keepScreenAwakeOnRoutine: boolean;
   setHapticsEnabled: (enabled: boolean) => void;
   setReduceMotion: (enabled: boolean) => void;
   setShowNextStep: (enabled: boolean) => void;
+  setRoutineStepSoundEnabled: (enabled: boolean) => void;
+  setKeepScreenAwakeOnRoutine: (enabled: boolean) => void;
 }
 
 const usePreferencesLoadingStore = create(() => ({ finished: false }));
@@ -29,9 +33,13 @@ export const usePreferencesStore = create<PreferencesStore>()(
       hapticsEnabled: false,
       reduceMotion: false,
       showNextStep: false,
+      routineStepSoundEnabled: false,
+      keepScreenAwakeOnRoutine: false,
       setHapticsEnabled: (hapticsEnabled) => set({ hapticsEnabled }),
       setReduceMotion: (reduceMotion) => set({ reduceMotion }),
       setShowNextStep: (showNextStep) => set({ showNextStep }),
+      setRoutineStepSoundEnabled: (routineStepSoundEnabled) => set({ routineStepSoundEnabled }),
+      setKeepScreenAwakeOnRoutine: (keepScreenAwakeOnRoutine) => set({ keepScreenAwakeOnRoutine }),
     }),
     {
       name: "preferences-storage",

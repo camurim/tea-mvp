@@ -11,12 +11,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useRoutineStore } from "@/stores/routineStore";
 import { VisualTimerBar } from "@/components/VisualTimerBar";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useFontScale } from "@/hooks/useFontScale";
+import { useStepCompleteSound } from "@/hooks/useStepCompleteSound";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import { ThemeColors } from "@/constants/theme";
+
+const ROUTINE_KEEP_AWAKE_TAG = "routine-execution";
 
 /**
  * RoutineExecutionScreen — Execução passo-a-passo
@@ -31,8 +35,10 @@ export default function RoutineExecutionScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const showNextStep = usePreferencesStore((state) => state.showNextStep);
+  const keepScreenAwakeOnRoutine = usePreferencesStore((state) => state.keepScreenAwakeOnRoutine);
   const { colors } = useThemeMode();
   const { fontSize } = useFontScale();
+  const { playStepCompleteSound } = useStepCompleteSound();
   const styles = useMemo(() => createStyles(colors, fontSize), [colors, fontSize]);
   const execution = useRoutineStore((state) => state.execution);
   const routines = useRoutineStore((state) => state.routines);
@@ -43,6 +49,7 @@ export default function RoutineExecutionScreen() {
   const stopExecution = useRoutineStore((state) => state.stopExecution);
 
   const [appActiveTick, setAppActiveTick] = useState(0);
+  const isRoutineActive = execution !== null && execution.completedAt === null;
 
   const returnToRoutines = useCallback(() => {
     // Reuse the list that opened this execution rather than stacking a copy.
@@ -51,6 +58,20 @@ export default function RoutineExecutionScreen() {
     else router.replace("/routines");
   }, [router]);
 
+  const finishCurrentStep = useCallback(() => {
+    playStepCompleteSound();
+    completeStep();
+  }, [playStepCompleteSound, completeStep]);
+
+  // Mantém a tela ligada durante a execução da rotina quando a preferência estiver ativa.
+  useEffect(() => {
+    if (!keepScreenAwakeOnRoutine || !isRoutineActive) return;
+    void activateKeepAwakeAsync(ROUTINE_KEEP_AWAKE_TAG).catch(() => {});
+    return () => {
+      void deactivateKeepAwake(ROUTINE_KEEP_AWAKE_TAG).catch(() => {});
+    };
+  }, [keepScreenAwakeOnRoutine, isRoutineActive]);
+
   // Ressincroniza a contagem ao retornar do segundo plano, pois o SO pode suspender timers JS.
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -58,7 +79,7 @@ export default function RoutineExecutionScreen() {
         setAppActiveTick((tick) => tick + 1);
       }
     });
-    return () => subscription.remove();
+    return () => subscription?.remove();
   }, []);
 
   // Avança automaticamente para o próximo passo quando o tempo da tarefa se esgota.
@@ -74,18 +95,18 @@ export default function RoutineExecutionScreen() {
 
     const remaining = execution.stepEndsAt - Date.now();
     if (remaining <= 0) {
-      completeStep();
+      finishCurrentStep();
       return;
     }
 
     const timer = setTimeout(() => {
-      completeStep();
+      finishCurrentStep();
     }, remaining);
 
     return () => clearTimeout(timer);
   }, [
     execution,
-    completeStep,
+    finishCurrentStep,
     appActiveTick,
   ]);
 
@@ -127,7 +148,7 @@ export default function RoutineExecutionScreen() {
   const isCompleted = execution.completedAt !== null;
 
   const handleCompleteStep = () => {
-    completeStep();
+    finishCurrentStep();
   };
 
   const handleStop = () => {

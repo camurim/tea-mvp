@@ -1,6 +1,6 @@
 import React from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Linking, Pressable } from "react-native";
+import { Linking, Pressable, Switch } from "react-native";
 import renderer, { act } from "react-test-renderer";
 import Settings from "@/app/settings";
 import { CrisisCardModal } from "@/components/CrisisCardModal";
@@ -25,7 +25,14 @@ const preferencesKey = "preferences-storage";
 
 beforeEach(async () => {
   await AsyncStorage.clear();
-  usePreferencesStore.setState({ language: "pt-BR", hapticsEnabled: false, reduceMotion: false, showNextStep: false });
+  usePreferencesStore.setState({
+    language: "pt-BR",
+    hapticsEnabled: false,
+    reduceMotion: false,
+    showNextStep: false,
+    routineStepSoundEnabled: false,
+    keepScreenAwakeOnRoutine: false,
+  });
   useCrisisStore.getState().resetToDefaults();
 });
 
@@ -150,4 +157,25 @@ test("French translates built-in crisis content and leaves saved edits intact", 
   expect(localizeCrisisMessage(saved, t).content).toBe(saved.content);
   expect(t("{0} em {1} de {2} registros.", t("Cheiros fortes"), 2, 3))
     .toBe("Odeurs fortes : 2 sur 3 bilans.");
+});
+
+test("settings toggles routine step sound and keep screen awake preferences", () => {
+  act(() => { screen = renderer.create(<Settings />); });
+  const soundSwitch = screen!.root
+    .findAllByType(Switch)
+    .find((s) => s.props.accessibilityLabel === "Som ao finalizar etapa")!;
+  const awakeSwitch = screen!.root
+    .findAllByType(Switch)
+    .find((s) => s.props.accessibilityLabel === "Manter tela ligada na rotina")!;
+
+  expect(soundSwitch.props.value).toBe(false);
+  expect(awakeSwitch.props.value).toBe(false);
+
+  act(() => {
+    soundSwitch.props.onValueChange(true);
+    awakeSwitch.props.onValueChange(true);
+  });
+
+  expect(usePreferencesStore.getState().routineStepSoundEnabled).toBe(true);
+  expect(usePreferencesStore.getState().keepScreenAwakeOnRoutine).toBe(true);
 });

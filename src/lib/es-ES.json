@@ -389,5 +389,9 @@
   "Ícone {0} para o passo {1}": "Icono {0} para el paso {1}",
   "Readiciona as rotinas padrão que estiverem faltando, mantendo suas rotinas atuais": "Vuelve a añadir las rutinas predeterminadas que falten, conservando tus rutinas actuales",
   "As rotinas padrão que foram excluídas serão adicionadas novamente à sua lista, sem apagar suas rotinas atuais.": "Las rutinas predeterminadas eliminadas se volverán a añadir a tu lista sin borrar tus rutinas actuales.",
-  "Confirmar restauração": "Confirmar restauración"
+  "Confirmar restauração": "Confirmar restauración",
+  "Som ao finalizar etapa": "Sonido al finalizar paso",
+  "Emitir um som breve ao término de cada etapa da rotina.": "Emitir un sonido breve al terminar cada paso de la rutina.",
+  "Manter tela ligada na rotina": "Mantener la pantalla encendida en la rutina",
+  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Evitar que la pantalla se apague mientras una rutina esté en curso."
 }

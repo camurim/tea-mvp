@@ -48,7 +48,7 @@ export function VisualTimerBar({
         setAppActiveTick((tick) => tick + 1);
       }
     });
-    return () => subscription.remove();
+    return () => subscription?.remove();
   }, []);
 
   useEffect(() => {

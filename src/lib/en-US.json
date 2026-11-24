@@ -389,5 +389,9 @@
   "Ícone {0} para o passo {1}": "Icon {0} for step {1}",
   "Readiciona as rotinas padrão que estiverem faltando, mantendo suas rotinas atuais": "Re-adds any missing built-in routines while keeping your current routines",
   "As rotinas padrão que foram excluídas serão adicionadas novamente à sua lista, sem apagar suas rotinas atuais.": "Any deleted built-in routines will be added back to your list without removing your current routines.",
-  "Confirmar restauração": "Confirm restore"
+  "Confirmar restauração": "Confirm restore",
+  "Som ao finalizar etapa": "Sound at step completion",
+  "Emitir um som breve ao término de cada etapa da rotina.": "Play a brief sound when each routine step finishes.",
+  "Manter tela ligada na rotina": "Keep screen awake during routines",
+  "Impedir que a tela desligue enquanto uma rotina estiver em andamento.": "Prevent the screen from turning off while a routine is running."
 }

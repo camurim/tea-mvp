@@ -42,6 +42,8 @@ export default function SettingsScreen() {
     { label: t("Vibração"), description: t("Permitir feedback por vibração nas interações."), value: preferences.hapticsEnabled, onChange: preferences.setHapticsEnabled },
     { label: t("Reduzir movimento"), description: t("Desativar transições e a expansão do círculo de respiração. A preferência do sistema também é respeitada."), value: preferences.reduceMotion, onChange: preferences.setReduceMotion },
     { label: t("Mostrar próximo passo"), description: t("Exibir Agora / Depois durante as rotinas."), value: preferences.showNextStep, onChange: preferences.setShowNextStep },
+    { label: t("Som ao finalizar etapa"), description: t("Emitir um som breve ao término de cada etapa da rotina."), value: preferences.routineStepSoundEnabled, onChange: preferences.setRoutineStepSoundEnabled },
+    { label: t("Manter tela ligada na rotina"), description: t("Impedir que a tela desligue enquanto uma rotina estiver em andamento."), value: preferences.keepScreenAwakeOnRoutine, onChange: preferences.setKeepScreenAwakeOnRoutine },
   ];
 
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
